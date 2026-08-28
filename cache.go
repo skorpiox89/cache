@@ -288,17 +288,22 @@ func CacheMiddleware(store persistence.CacheStore, expire time.Duration) gin.Han
 		}
 
 		var cache responseCache
+		body := []byte{}
+		if c.Request.Body != nil {
+			body, _ = ioutil.ReadAll(c.Request.Body)
+		}
+
 		buf := new(bytes.Buffer)
 		buf.WriteString(c.Request.Method)
 		buf.WriteString(c.Request.URL.String())
-		_, _ = buf.ReadFrom(c.Request.Body)
+		buf.Write(body)
 
 		h := md5.New()
 		h.Write(buf.Bytes())
 		key := hex.EncodeToString(h.Sum(nil))
 
 		if err := store.Get(key, &cache); err != nil {
-			c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(buf.Bytes()))
+			c.Request.Body = ioutil.NopCloser(bytes.NewReader(body))
 
 			if err != persistence.ErrCacheMiss {
 				log.Println(err.Error())

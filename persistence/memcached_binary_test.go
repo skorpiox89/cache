@@ -11,14 +11,14 @@ import (
 const localhost = "localhost:11211"
 
 var newMcStore = func(t *testing.T, defaultExpiration time.Duration) CacheStore {
+	requireCacheService(t, localhost)
 	mcStore := NewMemcachedBinaryStore(localhost, "", "", defaultExpiration)
 	err := mcStore.Flush()
 	if err == nil {
 		return mcStore
 	}
-	t.Errorf("Failed to connect to memcached on %s with %s", localhost, err)
-	t.FailNow()
-	panic("")
+	t.Fatalf("failed to initialize memcached on %s: %s", localhost, err)
+	return nil
 }
 
 func TestMemcachedBinary_TypicalGetSet(t *testing.T) {
@@ -46,6 +46,7 @@ func TestMemcachedBinary_Add(t *testing.T) {
 }
 
 var newMcStoreWithConfig = func(t *testing.T, defaultExpiration time.Duration) CacheStore {
+	requireCacheService(t, localhost)
 	config := mc.DefaultConfig()
 	config.PoolSize = 2
 	mcStore := NewMemcachedBinaryStoreWithConfig(localhost, "", "", defaultExpiration, config)
@@ -53,9 +54,8 @@ var newMcStoreWithConfig = func(t *testing.T, defaultExpiration time.Duration) C
 	if err == nil {
 		return mcStore
 	}
-	t.Errorf("Failed to connect to memcached on %s with %s", localhost, err)
-	t.FailNow()
-	panic("")
+	t.Fatalf("failed to initialize memcached on %s: %s", localhost, err)
+	return nil
 }
 
 func TestMemcachedBinaryWithConfig_TypicalGetSet(t *testing.T) {

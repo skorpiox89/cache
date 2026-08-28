@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -303,6 +304,13 @@ func performRequest(method, target string, router *gin.Engine) *httptest.Respons
 	return w
 }
 
+func performRequestWithBody(method, target string, body []byte, router *gin.Engine) *httptest.ResponseRecorder {
+	r := httptest.NewRequest(method, target, bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, r)
+	return w
+}
+
 type memoryDelayStore struct {
 	*persistence.InMemoryStore
 }
@@ -323,26 +331,19 @@ func (c *memoryDelayStore) Add(key string, value interface{}, expires time.Durat
 	return c.InMemoryStore.Add(key, value, expires)
 }
 
-func Test1(t *testing.T) {
-	r := gin.Default()
-
-	store := persistence.NewInMemoryStore(time.Second)
-	//var store persistence.CacheStore
-
-	r.GET("/ping", func(c *gin.Context) {
-		c.String(200, "pong "+fmt.Sprint(time.Now().Unix()))
-	})
-	// Cached Page
-	r.POST("/cache_ping", CacheAll(store, 10*time.Second, func(c *gin.Context) {
-		time.Sleep(1 * time.Second)
-		c.String(200, "pong "+fmt.Sprint(time.Now().Unix()))
-	}))
-
-	r.POST("/cache_ping2", CacheMiddleware(store, 10*time.Second), func(c *gin.Context) {
-		time.Sleep(1 * time.Second)
-		c.String(200, "pong2 "+fmt.Sprint(time.Now().Unix()))
+func TestCacheMiddlewarePreservesRequestBody(t *testing.T) {
+	store := persistence.NewInMemoryStore(time.Minute)
+	router := gin.New()
+	router.POST("/cache", CacheMiddleware(store, time.Minute), func(c *gin.Context) {
+		body, err := ioutil.ReadAll(c.Request.Body)
+		assert.NoError(t, err)
+		c.String(http.StatusOK, string(body))
 	})
 
-	// Listen and Server in 0.0.0.0:8080
-	r.Run(":8080")
+	w1 := performRequestWithBody("POST", "/cache", []byte("payload"), router)
+	w2 := performRequestWithBody("POST", "/cache", []byte("payload"), router)
+
+	assert.Equal(t, http.StatusOK, w1.Code)
+	assert.Equal(t, "payload", w1.Body.String())
+	assert.Equal(t, w1.Body.String(), w2.Body.String())
 }

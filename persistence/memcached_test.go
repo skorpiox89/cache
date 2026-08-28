@@ -1,7 +1,6 @@
 package persistence
 
 import (
-	"net"
 	"testing"
 	"time"
 )
@@ -10,15 +9,8 @@ import (
 const testServer = "localhost:11211"
 
 var newMemcachedStore = func(t *testing.T, defaultExpiration time.Duration) CacheStore {
-	c, err := net.Dial("tcp", testServer)
-	if err == nil {
-		_, _ = c.Write([]byte("flush_all\r\n"))
-		c.Close()
-		return NewMemcachedStore([]string{testServer}, defaultExpiration)
-	}
-	t.Errorf("couldn't connect to memcached on %s", testServer)
-	t.FailNow()
-	panic("")
+	flushMemcached(t, testServer)
+	return NewMemcachedStore([]string{testServer}, defaultExpiration)
 }
 
 func TestMemcachedCache_TypicalGetSet(t *testing.T) {
